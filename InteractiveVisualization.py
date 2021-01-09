@@ -85,52 +85,53 @@ class InteractiveBarChart:
             spine.set_alpha(0.8)
         self.cbar_plot.tick_params(axis='x', color=[0, 0, 0, 0.8], labelcolor=[0, 0, 0, 0.8])
 
+    def on_click(self, event, barchart, rects, means, error, cmap):
+        """
+        Plots a horizontal line at a selected y-value, then colors the bars of the bar chart
+        based on the likelihood that those distributions contain that y-value.
+        :param event: mouse click
+        :param barchart: chart on which to draw the line
+        :param rects: bars whose colors are to be changed
+        :param means: mean values
+        :param error: error values
+        :param cmap: color mapping to use for the bars
+        """
+        y_val = event.ydata
+        # if we already drew a line in response to user click, remove it
+        if len(barchart.lines) > 2:  # barchart.lines includes the error lines, so it is already len=2
+            barchart.lines[-1].remove()
+        # if we annotated the above line, remove the annotation as well
+        if len(barchart.texts) > 0:
+            barchart.texts[-1].remove()
+        # draw the line and annotate with the y-value
+        barchart.axhline(y_val, c='darkgrey')
+        barchart.annotate(f'y = {y_val:.2f}', xy=(barchart.get_xlim()[1] - 1, y_val + 500))
+        # recolor the bars
+        for i, rect in enumerate(rects):
+            total = error.iloc[i] * 2
+            low = means.iloc[i] - error.iloc[i]
+            p = 1 - (y_val - low) / total
+            rect.set_facecolor(cmap(p))
+
     def show_plot(self):
         """
         Opens a window with the interactive plot
         :return:
         """
+        plt.gcf().canvas.mpl_connect('button_press_event',
+                                     lambda event: self.on_click(event,
+                                                                 self.barchart,
+                                                                 self.rects,
+                                                                 self.means,
+                                                                 self.error,
+                                                                 self.cmap))
         plt.show()
-
-
-def on_click(event, barchart, rects, means, error, cmap):
-    """
-    Plots a horizontal line at a selected y-value, then colors the bars of the bar chart
-    based on the liklihood that those distributions contain that y-value.
-    :param event: mouse click
-    :param barchart: chart on which to draw the line
-    :param rects: bars whose colors are to be changed
-    :param means: mean values
-    :param error: error values
-    :param cmap: color mapping to use for the bars
-    """
-    y_val = event.ydata
-    # if we already drew a line in response to user click, remove it
-    if len(barchart.lines) > 2:  # barchart.lines includes the error lines, so it is already len=2
-        barchart.lines[-1].remove()
-    # if we annotated the above line, remove the annotation as well
-    if len(barchart.texts) > 0:
-        barchart.texts[-1].remove()
-    # draw the line and annotate with the y-value
-    barchart.axhline(y_val, c='darkgrey')
-    barchart.annotate(f'y = {y_val:.2f}', xy=(barchart.get_xlim()[1] - 1, y_val + 500))
-    # recolor the bars
-    for i, rect in enumerate(rects):
-        total = error.iloc[i] * 2
-        low = means.iloc[i] - error.iloc[i]
-        p = 1 - (y_val - low) / total
-        rect.set_facecolor(cmap(p))
 
 
 def main():
     processed_data = MeansAndIntervals()
     my_chart = InteractiveBarChart(processed_data.means, processed_data.error, get_cmap('seismic'))
-    cid = plt.gcf().canvas.mpl_connect('button_press_event', lambda event: on_click(event,
-                                                                                    my_chart.barchart,
-                                                                                    my_chart.rects,
-                                                                                    processed_data.means,
-                                                                                    processed_data.error,
-                                                                                    my_chart.cmap))
+
     my_chart.show_plot()
 
 
